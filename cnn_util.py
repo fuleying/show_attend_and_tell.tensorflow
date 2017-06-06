@@ -7,9 +7,9 @@ import skimage
 def crop_image(x, target_height=227, target_width=227):
     image = skimage.img_as_float(skimage.io.imread(x)).astype(np.float32)
 
-    if len(image.shape) == 2:
+    if len(image.shape) == 2:   # 灰度图，扩展成 HWC
         image = np.tile(image[:,:,None], 3)
-    elif len(image.shape) == 4:
+    elif len(image.shape) == 4: # 第四维，透明度，去掉
         image = image[:,:,:,0]
 
     height, width, rgb = image.shape
@@ -17,8 +17,10 @@ def crop_image(x, target_height=227, target_width=227):
         resized_image = cv2.resize(image, (target_height,target_width))
 
     elif height < width:
+        # 相同比例扩展至较长边达到target值，没有变形
         resized_image = cv2.resize(image, (int(width * float(target_height)/height), target_width))
         cropping_length = int((resized_image.shape[1] - target_height) / 2)
+        # 裁剪较长边，使得H = W
         resized_image = resized_image[:,cropping_length:resized_image.shape[1] - cropping_length]
 
     else:
@@ -52,9 +54,11 @@ class CNN(object):
         net = caffe.Net(self.deploy, self.model, caffe.TEST)
 
         transformer = caffe.io.Transformer({'data':net.blobs['data'].data.shape})
+        # HWC >>> CHW
         transformer.set_transpose('data', (2,0,1))
         transformer.set_mean('data', np.load(self.mean).mean(1).mean(1))
         transformer.set_raw_scale('data', 255)
+        # RGB >>> BGR
         transformer.set_channel_swap('data', (2,1,0))
 
         return net, transformer
@@ -74,29 +78,10 @@ class CNN(object):
             for idx, in_ in enumerate(image_batch):
                 caffe_in[idx] = self.transformer.preprocess('data', in_)
 
+            # 提取特征
             out = self.net.forward_all(blobs=[layers], **{'data':caffe_in})
             feats = out[layers]
 
             all_feats[start:end] = feats
 
         return all_feats
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

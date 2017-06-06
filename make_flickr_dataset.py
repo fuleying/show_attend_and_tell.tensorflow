@@ -4,11 +4,13 @@ import os
 import cPickle
 from cnn_util import *
 
+# Extracts conv5_3 layer activations of VGG Network for flickr30k images
 vgg_model = '/home/taeksoo/Package/caffe/models/vgg/VGG_ILSVRC_19_layers.caffemodel'
 vgg_deploy = '/home/taeksoo/Package/caffe/models/vgg/VGG_ILSVRC_19_layers_deploy.prototxt'
 
 annotation_path = './data/results_20130124.token'
 flickr_image_path = '../show_attend_and_tell/images/flickr30k-images/'
+# save feature map in 'data/feats.npy'
 feat_path = './data/feats.npy'
 annotation_result_path = './data/annotations.pickle'
 
@@ -21,10 +23,13 @@ annotations['image'] = annotations['image'].map(lambda x: os.path.join(flickr_im
 unique_images = annotations['image'].unique()
 image_df = pd.DataFrame({'image':unique_images, 'image_id':range(len(unique_images))})
 
+# save annotations in 'data/annotations.pickle'
+# annotations.keys():
+# [u'image', u'caption', u'image_num', u'image_id']
 annotations = pd.merge(annotations, image_df)
 annotations.to_pickle(annotation_result_path)
 
 if not os.path.exists(feat_path):
+    # extract feature
     feats = cnn.get_features(unique_images, layers='conv5_3', layer_sizes=[512,14,14])
     np.save(feat_path, feats)
-
