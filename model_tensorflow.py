@@ -28,7 +28,7 @@ class Caption_Generator():
         self.n_lstm_steps = n_lstm_steps
         self.batch_size = batch_size
 
-        with tf.device("/cpu:0"):
+        with tf.device("/cpu:0"): # random_uniform！！！！
             self.Wemb = tf.Variable(tf.random_uniform([n_words, dim_embed], -1.0, 1.0), name='Wemb')
 
         # h_0
@@ -58,7 +58,7 @@ class Caption_Generator():
 
         self.decode_word_W = self.init_weight(dim_embed, n_words, name='decode_word_W')
 
-        if bias_init_vector is not None:
+        if bias_init_vector is not None: # ！！！！
             self.decode_word_b = tf.Variable(bias_init_vector.astype(np.float32), name='decode_word_b')
         else:
             self.decode_word_b = self.init_bias(n_words, name='decode_word_b')
@@ -121,6 +121,7 @@ class Caption_Generator():
                  tf.expand_dims(tf.matmul(h, self.hidden_att_W), 1) + \
                  self.pre_att_b
 
+            # tanh or relu ?！！！！
             context_encode = tf.nn.tanh(context_encode)
 
             # 여기도 context_encode: 3D -> flat required
@@ -155,9 +156,11 @@ class Caption_Generator():
             logits = tf.nn.relu(logits)
             logits = tf.nn.dropout(logits, 0.5)
 
+            # decode_word_W: (dim_embed, n_words)
+            # decode_word_b: (n_words,)
             # logit_words: (N, n_words)
-            # onehot_labels: (N, n_words)
             logit_words = tf.matmul(logits, self.decode_word_W) + self.decode_word_b
+            # onehot_labels: (N, n_words)
             # cross_entropy: (N,)
             cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logit_words, onehot_labels)
             # mask: (N, n_lstm_steps)
@@ -182,7 +185,7 @@ class Caption_Generator():
         logit_list = []
         alpha_list = []
         # start token
-        word_emb = tf.zeros([1, self.dim_embed])
+        word_emb = tf.zeros([1, self.dim_embed])    ！！！！作为输出给下一轮！！！
         for ind in range(maxlen):
             # (1, dim_hidden *4)
             x_t = tf.matmul(word_emb, self.lstm_W) + self.lstm_b
@@ -262,7 +265,7 @@ def preProBuildWordVocab(sentence_iterator, word_count_threshold=30): # borrowed
       ix += 1
 
     word_counts['.'] = nsents
-    # #bias_init_vector = 2943
+    # bias_init_vector = 2943
     bias_init_vector = np.array([1.0*word_counts[ixtoword[i]] for i in ixtoword])
     bias_init_vector /= np.sum(bias_init_vector) # normalize to frequencies
     bias_init_vector = np.log(bias_init_vector)
@@ -295,6 +298,7 @@ def train(pretrained_model_path=pretrained_model_path): # 전에 학습하던게
     learning_rate=0.001
     n_words = len(wordtoix)
     feats = np.load(feat_path)
+    # include all the words [<30] and '.'
     maxlen = np.max( map(lambda x: len(x.split(' ')), captions) )
 
     sess = tf.InteractiveSession()
@@ -318,6 +322,7 @@ def train(pretrained_model_path=pretrained_model_path): # 전에 학습하던게
         print "Starting with pretrained model"
         saver.restore(sess, pretrained_model_path)
 
+    # random shuffle
     index = list(annotation_data.index)
     np.random.shuffle(index)
     annotation_data = annotation_data.ix[index]
